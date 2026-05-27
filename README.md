@@ -1,44 +1,87 @@
----
+# 📈 Stock Price Forecaster
 
-## Parameters
+An interactive web application that forecasts stock prices using Facebook's Prophet 
+time series model, with a proper train/test split to evaluate real out-of-sample 
+accuracy. Built with Python and deployed on Streamlit.
 
-| Parameter | Default | Range | Description |
-|-----------|---------|-------|-------------|
-| Ticker | AAPL | Any valid symbol | Stock to forecast |
-| Forecast Horizon | 180 days | 30–365 | Days to project forward |
-| Historical Window | 5 years | 2–5 | Training data range |
-| Holdout Period | 6 months | 1–12 | Months withheld for evaluation |
-| Moving Average | 20 days | 5–50 | Smoothing window |
-| Base Growth | 8% | Any | Annual base case assumption |
-| Upside Growth | 15% | Any | Annual upside case assumption |
-| Downside Growth | -5% | Any | Annual downside case assumption |
+🔗 **Live App**: [your-app-url.streamlit.app]([https://your-app-url.streamlit.app](https://aoy3jftblzvvfeijjywwsu.streamlit.app))
 
 ---
 
-## Limitations
+## What It Does
 
-- Prophet is a trend and seasonality model — it does not incorporate 
-  fundamental data, earnings, macroeconomic indicators, or market sentiment
-- Wide confidence intervals on longer horizons reflect genuine uncertainty, 
-  not model weakness
-- High MAPE on certain tickers indicates a trend reversal during the holdout 
-  period that the model could not anticipate — this is expected behavior, 
-  not a bug
-- Past price trends do not guarantee future performance
+Most forecasting projects evaluate their model on the same data it trained on, 
+which produces artificially low error rates. This app withholds the most recent 
+months of price data completely from training and uses them only to measure how 
+accurately the model predicted prices it had never seen — the same standard used 
+in professional financial modeling.
+
+### Key Features
+
+- **True holdout evaluation** — model trains on historical data only, then is 
+  tested against a user-defined period of unseen prices
+- **Dynamic ticker input** — forecast any publicly traded stock on demand
+- **Multi-scenario modeling** — base, upside, and downside growth projections 
+  with user-defined annual growth rate assumptions
+- **Confidence intervals** — Prophet's 80% prediction bands visualized across 
+  the forecast horizon
+- **Model confidence label** — automatic classification of forecast strength 
+  (Strong / Moderate / Weak) based on MAPE thresholds
+- **Normalized MAE** — error expressed as a percentage of average holdout price 
+  so results are comparable across different-priced stocks
+- **Monthly price targets table** — aggregated end-of-month forecast values with 
+  upper and lower bounds
+- **Fully adjustable parameters** — historical window, holdout period, smoothing 
+  window, forecast horizon, and growth assumptions all controlled via sidebar
 
 ---
 
-## Disclaimer
+## How the Model Works
 
-This tool is for educational and portfolio purposes only. It does not constitute 
-financial advice. Do not make investment decisions based on this model's output.
+1. **Data ingestion** — pulls historical daily price data via the `yfinance` API
+2. **Smoothing** — applies a rolling moving average (default 20-day) to reduce 
+   short-term noise before modeling
+3. **Train/test split** — withholds the most recent N months as a holdout set 
+   the model never sees during training
+4. **Prophet training** — fits a decomposable time series model with yearly 
+   seasonality and multiplicative growth on the training set only
+5. **Forecast generation** — projects prices through the holdout period and 
+   beyond into a user-defined future horizon
+6. **Holdout evaluation** — computes MAE and MAPE by comparing Prophet's 
+   predictions against actual holdout prices
+7. **Scenario overlay** — applies user-defined compounding growth rates to 
+   generate base, upside, and downside projections from the last known price
 
 ---
 
-## Author
+## Model Performance (Example — AAPL, 6-Month Holdout)
 
-**Tajwar Fahmid**  
-B.S. Data Science — University of Texas at Arlington, May 2026  
-[linkedin.com/in/tajwar-fahmid](https://www.linkedin.com/in/tajwar-fahmid-0a1b7720b/) · 
-[github.com/TajwarFahmid](https://github.com/TajwarFahmid) · 
-[Tableau Portfolio](https://public.tableau.com/app/profile/tajwar.fahmid8295/vizzes)
+| Metric | Value |
+|--------|-------|
+| Training Days | 1,132 |
+| Holdout Days | 122 |
+| MAE | $10.66 |
+| MAPE | 3.92% |
+| Normalized MAE | ~5.1% of avg price |
+
+> Performance varies significantly by ticker. Stocks that experienced trend 
+> reversals or high volatility during the holdout period will show higher error 
+> rates — the app flags these automatically with a warning label.
+
+---
+
+## Tech Stack
+
+| Layer | Tools |
+|-------|-------|
+| Data Ingestion | yfinance, pandas |
+| Modeling | Prophet (Facebook/Meta) |
+| Evaluation | scikit-learn (MAE, MAPE) |
+| Visualization | Plotly |
+| Frontend | Streamlit |
+| Deployment | Streamlit Cloud |
+| Language | Python 3.12 |
+
+---
+
+
