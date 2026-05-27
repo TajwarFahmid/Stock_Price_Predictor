@@ -72,21 +72,45 @@ with st.spinner(f"Downloading {history_years} years of {ticker} price data..."):
         st.error(f"No data found for **'{ticker}'**. Please check the ticker symbol and try again.")
         st.stop()
 
+    # Flatten multi-index columns if present
     if isinstance(raw_data.columns, pd.MultiIndex):
         raw_data.columns = raw_data.columns.get_level_values(0)
 
     df_daily = raw_data.reset_index()
 
+    # Handle yfinance returning date as 'Date', 'Datetime', or as index
+    if 'Date' not in df_daily.columns and 'Datetime' not in df_daily.columns:
+        df_daily = raw_data.copy()
+        df_daily.index.name = 'Date'
+        df_daily = df_daily.reset_index()
+
+    date_col = 'Date' if 'Date' in df_daily.columns else 'Datetime'
+
+    # Flatten multi-index columns again after reset_index in case they reappear
+    if isinstance(df_daily.columns, pd.MultiIndex):
+        df_daily.columns = df_daily.columns.get_level_values(0)
+
+    # Flatten any nested values
+    for col in df_daily.columns:
+        if df_daily[col].dtype == object:
+            try:
+                df_daily[col] = df_daily[col].apply(
+                    lambda x: x[0] if hasattr(x, '__len__') and not isinstance(x, str) else x
+                )
+            except:
+                pass
+
     if 'Close' not in df_daily.columns:
         st.error("Could not retrieve closing price data for this ticker.")
         st.stop()
 
+    df_daily['Close'] = pd.to_numeric(df_daily['Close'], errors='coerce')
     df_daily['Smoothed_Close'] = df_daily['Close'].rolling(
         window=smoothing_window, min_periods=1
     ).mean()
 
     df_model = pd.DataFrame({
-        'ds': pd.to_datetime(df_daily['Date']),
+        'ds': pd.to_datetime(df_daily[date_col]),
         'y': df_daily['Smoothed_Close'].astype(float)
     }).dropna().reset_index(drop=True)
 
@@ -135,7 +159,7 @@ st.subheader(f"{ticker} Price Forecast — Next {forecast_days} Days")
 fig = go.Figure()
 
 fig.add_trace(go.Scatter(
-    x=df_daily['Date'], y=df_daily['Close'],
+    x=df_daily[date_col], y=df_daily['Close'],
     name="Raw Close Price", mode='lines',
     line=dict(color='#e0e0e0', width=1)
 ))
