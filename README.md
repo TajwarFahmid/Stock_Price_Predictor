@@ -4,7 +4,7 @@ An interactive web application that forecasts stock prices using Facebook's Prop
 time series model, with a proper train/test split to evaluate real out-of-sample 
 accuracy. Built with Python and deployed on Streamlit.
 
-🔗 **Live App**: [your-app-url.streamlit.app]([https://your-app-url.streamlit.app](https://aoy3jftblzvvfeijjywwsu.streamlit.app))
+🔗 **Live App**:[ ([https://app-url.streamlit.app](https://aoy3jftblzvvfeijjywwsu.streamlit.app))]
 
 ---
 
