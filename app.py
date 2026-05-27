@@ -160,24 +160,45 @@ test_preds = forecast_indexed.loc[
 test_actuals = df_test['y'].values[:len(test_preds)]
 
 if len(test_preds) > 0:
-    mae  = mean_absolute_error(test_actuals, test_preds)
-    mape = mean_absolute_percentage_error(test_actuals, test_preds) * 100
+    mae        = mean_absolute_error(test_actuals, test_preds)
+    mape       = mean_absolute_percentage_error(test_actuals, test_preds) * 100
+    avg_price  = np.mean(test_actuals)
+    normalized_mae = (mae / avg_price) * 100
 else:
-    mae, mape = 0, 0
+    mae, mape, avg_price, normalized_mae = 0, 0, 0, 0
 
-# --- METRICS ---
+# --- METRICS DISPLAY ---
 st.subheader("Model Performance — Evaluated on Unseen Holdout Data")
-m1, m2, m3, m4, m5 = st.columns(5)
+m1, m2, m3, m4, m5, m6 = st.columns(6)
 m1.metric("Ticker", ticker)
 m2.metric("Training Days", f"{len(df_train):,}")
 m3.metric("Holdout Days", f"{len(df_test):,}")
-m4.metric("MAE", f"${mae:.2f}")
-m5.metric("MAPE", f"{mape:.2f}%")
+m4.metric("Avg Holdout Price", f"${avg_price:.2f}")
+m5.metric("MAE", f"${mae:.2f}")
+m6.metric("MAPE", f"{mape:.2f}%")
 
 st.caption(
     f"Model trained on data before **{cutoff_date.strftime('%b %d, %Y')}** only. "
-    f"MAE and MAPE measured against **{len(df_test):,} days** the model never saw during training."
+    f"MAE and MAPE measured against **{len(df_test):,} days** the model never saw during training. "
+    f"Normalized MAE: **{normalized_mae:.2f}%** of average holdout price."
 )
+
+# --- MODEL CONFIDENCE LABEL ---
+if mape < 5:
+    st.success(
+        f"Strong forecast — model tracked {ticker} price within {mape:.1f}% "
+        f"on unseen data."
+    )
+elif mape < 10:
+    st.info(
+        f"Moderate forecast — {mape:.1f}% average error on unseen data. "
+        f"Trend direction is reliable but price targets are approximate."
+    )
+else:
+    st.warning(
+        f"Weak forecast — {mape:.1f}% error suggests {ticker} experienced a trend "
+        f"reversal or high volatility during the holdout period. Use with caution."
+    )
 
 # --- SCENARIO SETUP ---
 last_full_date = df_full['ds'].max()
@@ -195,30 +216,35 @@ rates = {
 st.subheader(f"{ticker} Forecast — Train/Test Split + {forecast_days}-Day Future Outlook")
 fig = go.Figure()
 
+# Raw close price
 fig.add_trace(go.Scatter(
     x=df_daily[date_col], y=df_daily['Close'],
     name="Raw Close Price", mode='lines',
     line=dict(color='#e0e0e0', width=1)
 ))
 
+# Training data smoothed
 fig.add_trace(go.Scatter(
     x=df_train['ds'], y=df_train['y'],
     name="Training Data (Smoothed)", mode='lines',
     line=dict(color='#111111', width=2)
 ))
 
+# Holdout test actuals
 fig.add_trace(go.Scatter(
     x=df_test['ds'], y=df_test['y'],
     name="Holdout Actuals (Unseen)", mode='lines',
     line=dict(color='#9467bd', width=2.5)
 ))
 
+# Prophet forecast
 fig.add_trace(go.Scatter(
     x=forecast['ds'], y=forecast['yhat'],
     name="Prophet Forecast", mode='lines',
     line=dict(color='#0078d4', dash='dash', width=2)
 ))
 
+# Confidence interval on future only
 if len(future_only) > 0:
     fig.add_trace(go.Scatter(
         x=pd.concat([future_only['ds'], future_only['ds'].iloc[::-1]]),
@@ -230,6 +256,7 @@ if len(future_only) > 0:
         name="80% Confidence Interval"
     ))
 
+# Vertical cutoff line
 fig.add_trace(go.Scatter(
     x=[str(cutoff_date.date()), str(cutoff_date.date())],
     y=[df_full['y'].min(), df_full['y'].max()],
@@ -239,6 +266,7 @@ fig.add_trace(go.Scatter(
     showlegend=True
 ))
 
+# Scenario lines
 for scenario_name, (annual_rate, color) in rates.items():
     if len(future_dates) > 0:
         daily_rate = (1 + annual_rate) ** (1/365) - 1
@@ -262,7 +290,7 @@ fig.update_layout(
 
 st.plotly_chart(fig, use_container_width=True)
 
-# --- FORECAST TABLE ---
+# --- MONTHLY FORECAST TABLE ---
 if len(future_only) > 0:
     st.subheader("Monthly Price Targets")
     future_only_copy = future_only.copy()
